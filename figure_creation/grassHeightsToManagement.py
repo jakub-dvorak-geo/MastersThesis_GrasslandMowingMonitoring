@@ -71,7 +71,7 @@ def overall_mown_date(gdf, threshold=20):
         col_1 = gdf[cols[idx+1]]
         days_since_last = (cols[idx+1]-cols[idx]).days
         conditions = [
-            condition_mown & (col_1 <= 20),
+            condition_mown & (col_1 <= 10),
             condition_mown & (col_1 <= 40) & (col_1 > 20)
             ]
         values = [
@@ -160,7 +160,7 @@ def plot_multiple_years(paths_list):
     for in_path in paths_list:
         gdf_heights = read_heights(in_path)
         gdf_mowdates = overall_mown_date(gdf_heights)
-
+        """
         for id in range(gdf_mowdates.shape[0]):
             coh_146_VH_mean = extract_coh(in_path, '146', 'VH', 'mean', id)
             plot_one(gdf_mowdates, coh_146_VH_mean, id)
@@ -168,7 +168,7 @@ def plot_multiple_years(paths_list):
         id = 4
         coh_146_VH_mean = extract_coh(in_path, '146', 'VH', 'mean', id)
         plot_one(gdf_mowdates, coh_146_VH_mean, id)
-        """
+
         #plot_time_series(gdf_heights)
         #plots_with_decrease = was_mown(gdf_heights)
         #when_mown_dict = when_mown(plots_with_decrease)
@@ -177,7 +177,7 @@ def plot_multiple_years(paths_list):
 
 
 if __name__ == '__main__':
-    in_vectors = [r'C:\Users\dd\Documents\NATUR_CUNI\_dp\reference_data\Vyjezdy_2021\vyjezdy_2021_zonal_stats.gpkg',
-        r'C:\Users\dd\Documents\NATUR_CUNI\_dp\reference_data\Vyjezdy_2022\vyjezdy_2022_zonal_stats.gpkg']
+    in_vectors = [r'C:\Users\dd\Documents\NATUR_CUNI\_dp\reference_data\2021\vyjezdy_2021_zonal_stats.gpkg',
+        r'C:\Users\dd\Documents\NATUR_CUNI\_dp\reference_data\2022\vyjezdy_2022_zonal_stats.gpkg']
 
     plot_multiple_years([in_vectors[0]])
