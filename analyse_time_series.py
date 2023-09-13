@@ -21,7 +21,7 @@ def compute_cfar_treshold(x, y):
     # RMSE of the linear fit
     fit_rmse = mean_squared_error(y, model.predict(x), squared=False)
     # Probability of false alarm
-    k = 3e-7
+    k = 1#3e-7
     return coh_fit, k * fit_rmse
 
 def potential_mown_dates(x, y, year=2021):
@@ -38,7 +38,6 @@ def potential_mown_dates(x, y, year=2021):
             confidence = 1 - 1 * np.exp(-(y[idx]-fit_prev_idx))
             df_row = pd.DataFrame([[x[idx],y[idx],confidence[0]]], columns=df_mown.columns)
             df_mown = pd.concat([df_mown, df_row])
-
     df_mown = df_mown.reset_index(drop=True)
     return df_mown
 
@@ -180,11 +179,38 @@ class Time_series:
 
         # Add twin axis for in-situ measurements
         self._add_twinx_axis(ax1, plot_idx)
-
         self._add_map_axis(ax_map, plot_idx)
 
-        # Show plot
-        plt.show(block=False)
+    def plot_single_roi_both_pol(self, plot_idx=0, relative_orbits=(22,73,95,146), stat='mean'):
+        fig, (ax1, ax_map) = plt.subplots(1, 2, figsize=(14,5.5), layout='tight')
+        fig.suptitle(f'Coherence {stat} for plot #{plot_idx} (both VH and VV)')
+
+        ax1.set_xlabel('Time')
+        ax1.set_ylabel('S1 Coherence', color = 'black')
+        ax1.tick_params(axis ='y', labelcolor = 'black')
+        self.detections[plot_idx] = {}
+
+        for ro in relative_orbits:
+            mown_both_pol = []
+            for pol in ('VH', 'VV'):
+                metric = f'{stat}_{pol}_RO-{ro:03}'
+                y_coh = self.sar_gdf.iloc[plot_idx].loc[self.metrics[metric]]
+                ax1.plot(self.sar_dates[ro], y_coh, label=f'{pol}_{ro}', marker='+')
+
+                # temp for extraction
+                mown = identify_mown_dates(self.sar_dates[ro], y_coh, year=self.year)
+                ax1.plot(mown['date'], mown['coh'], marker='o', fillstyle='none', color='black', linestyle='')
+                #self.detections[plot_idx][ro] = mown
+                mown_both_pol.append(mown)
+            self.detections[plot_idx][ro] = pd.concat(mown_both_pol, ignore_index=True)
+
+        ax1.legend(loc='upper left')
+        ax1.set_ylim([0,.6])
+
+        # Add twin axis for in-situ measurements
+        self._add_twinx_axis(ax1, plot_idx)
+        self._add_map_axis(ax_map, plot_idx)
+
 
     def plot_series_all(self, stat='mean', pol='VH', ro=146):
         fig, (axs) = plt.subplots(ncols=6, nrows=10, squeeze=False, sharex='all', sharey='all')
@@ -246,11 +272,11 @@ def plot_one(ax, gdf, id=4):
     gid = gdf.loc[id,:]
     cols = gdf.columns
 
-    max_val = gid[:int((len(gdf.columns)+1)/2)].max()
+    max_val = gid[:int((len(cols)+1)/2)].max()
     max_val = 10
 
-    for idx in range(int((len(gdf.columns))/2)):
-        start = gid.loc[cols[idx+int((len(gdf.columns)+1)/2)]]
+    for idx in range(int((len(cols))/2)):
+        start = gid.loc[cols[idx+int((len(cols)+1)/2)]]
         end = cols[idx]
         #x_vals = [gid[cols[idx]]]
         #print(x_vals)
@@ -262,7 +288,7 @@ def plot_one(ax, gdf, id=4):
 
 def plot_reference_mowdates(ax, id):
     gdf_heights = read_heights(inpath_vector)
-    gdf_mowdates = overall_mown_date(gdf_heights)
+    gdf_mowdates = overall_mown_date(gdf_heights, threshold=10)
     plot_one(ax, gdf_mowdates, id)
 
 
@@ -290,20 +316,27 @@ def assign_confidences(df):
 
 
 def plot_mowdates(ax, gdf):
+    # filter out detections with only one RO
+    gdf = gdf[gdf['detection_count'] > 1]
     for _, row in gdf.iterrows():
         start = row['date'] - timedelta(days=12)
         end = row['date']
         x_vals = np.array([start, end, end, start], dtype=np.datetime64)
         y_vals = [0, 0, 5, 5]
-        if row['detection_count'] == 4:
+        print(row['detection_count'])
+        if row['detection_count'] == 8:
             color = 'green'
-        if row['detection_count'] == 3:
+        elif row['detection_count'] == 7:
             color = 'yellow'
-        if row['detection_count'] == 2:
+        elif row['detection_count'] == 6:
             color = 'orange'
-        if row['detection_count'] == 1:
+        elif row['detection_count'] == 5:
             color = 'red'
-        ax.fill(x_vals, y_vals, alpha=0.5, color=color)
+        elif row['detection_count'] == 4:
+            color = 'purple'
+
+        if row['detection_count'] > 3:
+            ax.fill(x_vals, y_vals, alpha=0.5, color=color)
 
 
 def plot_sentinel_mowdates(ax, df_dict):
@@ -324,8 +357,17 @@ if __name__ == '__main__':
     inpath_vector = join(ROOT_DIR, f'reference_data/{year}/vyjezdy_{year}_zonal_stats.gpkg')
 
     hello_world = Time_series(year)
-    #hello_world.plot_single_roi(plot_idx=12, relative_orbits=(22,73,95,146), stat='median', pol='VH')
-    #hello_world.plot_single_roi(plot_idx=12, relative_orbits=(22,73,95,146), stat='median', pol='VV')
+    print(hello_world.sar_gdf.shape)
+
+    #hello_world.plot_single_roi(plot_idx=54, relative_orbits=(22,73,95,146), stat='median', pol='VH')
+    #hello_world.plot_single_roi(plot_idx=54, relative_orbits=(22,73,95,146), stat='median', pol='VV')
+    hello_world.plot_single_roi_both_pol(plot_idx=50, relative_orbits=(22,73,95,146), stat='median')
+    plt.show()
+    """
     for i in range(61):
-        hello_world.plot_single_roi(plot_idx=i, relative_orbits=(22,73,95,146), stat='median', pol='VH')
-        hello_world.plot_single_roi(plot_idx=i, relative_orbits=(22,73,95,146), stat='median', pol='VV')
+        #hello_world.plot_single_roi(plot_idx=i, relative_orbits=(22,73,95,146), stat='median', pol='VH')
+        #hello_world.plot_single_roi(plot_idx=i, relative_orbits=(22,73,95,146), stat='median', pol='VV')
+        hello_world.plot_single_roi_both_pol(plot_idx=i, relative_orbits=(22,73,146), stat='median')
+        # Show plot
+        plt.show()
+    """
